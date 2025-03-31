@@ -61,7 +61,7 @@ public class ChatServiceV3 {
                         "\n" +
                         "User Input Integration: Retain and use the personal information and details provided by the user throughout the conversation. If the user references something they mentioned earlier, incorporate that into your answer appropriately.\n" +
                         "\n" +
-                        "Your goal is to deliver accurate, informative, and engaging responses by balancing the prioritized context with well-reasoned general knowledge when needed.")
+                        "Your goal is to deliver accurate, informative, and engaging responses by balancing the prioritized context with well-reasoned general knowledge when needed. Do not say 'The context provided includes'")
                 .defaultAdvisors(
                         new MessageChatMemoryAdvisor(chatMemory),vectorStoreChatMemoryAdvisor,
                         qaAdvisor)
