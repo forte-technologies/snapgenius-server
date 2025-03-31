@@ -7,14 +7,14 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 
 
 // Updated CustomOAuth2SuccessHandler
@@ -43,11 +43,19 @@ public class CustomOAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHa
         // Generate JWT with user ID
         String token = jwtService.generateToken(user.getEmail(), user.getUserId());
 
-        // Redirect to dashboard with token as a hash fragment (no document.referrer reveals it)
-        // Using hash fragments because they're not sent to the server
+        // Create secure HTTP-only cookie with SameSite attribute
+        ResponseCookie tokenCookie = ResponseCookie.from("JWT_TOKEN", token)
+                .httpOnly(true)
+                .secure(true) // true in production
+                .path("/")
+                .maxAge(86400) // 1 day in seconds
+                .sameSite("None")
+                .build();
+
+        response.setHeader(HttpHeaders.SET_COOKIE, tokenCookie.toString());
+
         String baseUrl = frontendUrl;
-        String dashboardUrl = baseUrl + "/dashboard#auth_token=" + URLEncoder.encode(token, StandardCharsets.UTF_8.toString());
-        
+        String dashboardUrl =  baseUrl + "/dashboard";
         getRedirectStrategy().sendRedirect(request, response, dashboardUrl);
     }
 }

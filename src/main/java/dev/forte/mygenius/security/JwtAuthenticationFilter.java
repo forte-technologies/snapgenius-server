@@ -2,8 +2,11 @@ package dev.forte.mygenius.security;
 import dev.forte.mygenius.user.UserService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
+
 
 import java.io.IOException;
 import java.util.Collections;
@@ -35,9 +38,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
 
         try {
-            // Extract JWT token from the Authorization header
-            String token = extractTokenFromHeader(request);
-            
+            // Extract JWT token from cookie
+            String token = null;
+            Cookie[] cookies = request.getCookies();
+            if (cookies != null) {
+                for (Cookie cookie : cookies) {
+                    if ("JWT_TOKEN".equals(cookie.getName())) {
+                        token = cookie.getValue();
+                        break;
+                    }
+                }
+            }
+
             if (token != null) {
                 try {
                     // Validate token and extract claims
@@ -58,6 +70,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             new UsernamePasswordAuthenticationToken(principal, null, Collections.emptyList());
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
+
+                    // Optionally, if you no longer need to rely on request attribute
+                    // request.setAttribute("userId", userId);
                 } catch (Exception e) {
                     logger.error("JWT validation failed", e);
                 }
@@ -68,12 +83,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         filterChain.doFilter(request, response);
     }
-    
-    private String extractTokenFromHeader(HttpServletRequest request) {
-        String bearerToken = request.getHeader("Authorization");
-        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
-            return bearerToken.substring(7); // Remove "Bearer " prefix
+
+    private String extractTokenFromCookies(Cookie[] cookies) {
+        if (cookies == null) {
+            return null;
         }
+
+        for (Cookie cookie : cookies) {
+            if ("JWT_TOKEN".equals(cookie.getName())) {
+                return cookie.getValue();
+            }
+        }
+
         return null;
     }
 }

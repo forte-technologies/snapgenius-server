@@ -7,8 +7,12 @@ import dev.forte.mygenius.user.UserService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -63,25 +67,41 @@ public class AuthController {
 
 
     /**
-     * Logout endpoint - client should clear localStorage
+     * Logout endpoint - clears the JWT cookie
      */
     @PostMapping("/logout")
-    public ResponseEntity<Map<String, String>> logout() {
-        // No server-side action needed, client should clear the token
+    public ResponseEntity<Map<String, String>> logout(HttpServletResponse response) {
+        // Create an expired cookie to clear the JWT
+        ResponseCookie cookie = ResponseCookie.from("JWT_TOKEN", "")
+                .httpOnly(true)
+                .secure(true) // Set to true in production with HTTPS
+                .path("/")
+                .maxAge(0) // Expired cookie
+                .sameSite("None")
+                .build();
+
+        response.setHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
         return ResponseEntity.ok(Map.of("message", "Successfully logged out"));
     }
 
     /**
-     * Refresh JWT token
+     * Refresh JWT token (optional, for extending sessions)
      */
     @PostMapping("/refresh")
-    public ResponseEntity<?> refreshToken(HttpServletRequest request) {
-        // Check for token in Authorization header
-        String authHeader = request.getHeader("Authorization");
+    public ResponseEntity<?> refreshToken(HttpServletRequest request,
+                                          HttpServletResponse response) {
+        // Get existing token from cookies
         String token = null;
-        
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            token = authHeader.substring(7); // Remove "Bearer " prefix
+        Cookie[] cookies = request.getCookies();
+
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if ("JWT_TOKEN".equals(cookie.getName())) {
+                    token = cookie.getValue();
+                    break;
+                }
+            }
         }
 
         if (token == null) {
@@ -107,12 +127,18 @@ public class AuthController {
                 // Generate new token
                 String newToken = jwtService.generateToken(email, userId);
 
-                // Return the token in the response body
-                Map<String, Object> responseBody = new HashMap<>();
-                responseBody.put("message", "Token refreshed successfully");
-                responseBody.put("token", newToken);
-                
-                return ResponseEntity.ok(responseBody);
+                // Set the new token as a cookie
+                ResponseCookie tokenCookie = ResponseCookie.from("JWT_TOKEN", newToken)
+                        .httpOnly(true)
+                        .secure(true) // Set to true in production
+                        .path("/")
+                        .maxAge(86400) // 1 day
+                        .sameSite("None")
+                        .build();
+
+                response.setHeader(HttpHeaders.SET_COOKIE, tokenCookie.toString());
+
+                return ResponseEntity.ok(Map.of("message", "Token refreshed successfully"));
             } else {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(Map.of("error", "Token expired"));
