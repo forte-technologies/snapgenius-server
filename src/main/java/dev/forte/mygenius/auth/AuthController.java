@@ -91,15 +91,21 @@ public class AuthController {
     @PostMapping("/refresh")
     public ResponseEntity<?> refreshToken(HttpServletRequest request,
                                           HttpServletResponse response) {
-        // Get existing token from cookies
+        // Check for token in Authorization header first
+        String authHeader = request.getHeader("Authorization");
         String token = null;
-        Cookie[] cookies = request.getCookies();
-
-        if (cookies != null) {
-            for (Cookie cookie : cookies) {
-                if ("JWT_TOKEN".equals(cookie.getName())) {
-                    token = cookie.getValue();
-                    break;
+        
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            token = authHeader.substring(7); // Remove "Bearer " prefix
+        } else {
+            // Fall back to cookie (backward compatibility)
+            Cookie[] cookies = request.getCookies();
+            if (cookies != null) {
+                for (Cookie cookie : cookies) {
+                    if ("JWT_TOKEN".equals(cookie.getName())) {
+                        token = cookie.getValue();
+                        break;
+                    }
                 }
             }
         }
@@ -127,7 +133,7 @@ public class AuthController {
                 // Generate new token
                 String newToken = jwtService.generateToken(email, userId);
 
-                // Set the new token as a cookie
+                // Set the new token as a cookie (for backward compatibility)
                 ResponseCookie tokenCookie = ResponseCookie.from("JWT_TOKEN", newToken)
                         .httpOnly(true)
                         .secure(true) // Set to true in production
@@ -138,7 +144,12 @@ public class AuthController {
 
                 response.setHeader(HttpHeaders.SET_COOKIE, tokenCookie.toString());
 
-                return ResponseEntity.ok(Map.of("message", "Token refreshed successfully"));
+                // Also return the token in the response body for clients using localStorage
+                Map<String, Object> responseBody = new HashMap<>();
+                responseBody.put("message", "Token refreshed successfully");
+                responseBody.put("token", newToken);
+                
+                return ResponseEntity.ok(responseBody);
             } else {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(Map.of("error", "Token expired"));

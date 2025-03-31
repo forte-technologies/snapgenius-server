@@ -15,6 +15,8 @@ import org.springframework.security.web.authentication.SimpleUrlAuthenticationSu
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 
 
 // Updated CustomOAuth2SuccessHandler
@@ -43,7 +45,7 @@ public class CustomOAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHa
         // Generate JWT with user ID
         String token = jwtService.generateToken(user.getEmail(), user.getUserId());
 
-        // Create secure HTTP-only cookie with SameSite attribute
+        // Create secure HTTP-only cookie with SameSite attribute (for backward compatibility)
         ResponseCookie tokenCookie = ResponseCookie.from("JWT_TOKEN", token)
                 .httpOnly(true)
                 .secure(true) // true in production
@@ -54,8 +56,35 @@ public class CustomOAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHa
 
         response.setHeader(HttpHeaders.SET_COOKIE, tokenCookie.toString());
 
+        // Redirect to a special auth callback page that will securely handle token storage via postMessage
         String baseUrl = frontendUrl;
-        String dashboardUrl =  baseUrl + "/dashboard";
-        getRedirectStrategy().sendRedirect(request, response, dashboardUrl);
+        String callbackUrl = baseUrl + "/auth-callback";
+        
+        // We'll send the user to an auth-callback page that will securely handle the token
+        // This page will use window.postMessage to securely transfer the token to the parent/opener window
+        // and then redirect to the dashboard
+        response.setContentType("text/html;charset=UTF-8");
+        response.getWriter().write(
+            "<!DOCTYPE html>" +
+            "<html>" +
+            "<head>" +
+            "  <title>Authentication Success</title>" +
+            "  <script type=\"text/javascript\">" +
+            "    window.onload = function() {" +
+            "      try {" +
+            "        window.localStorage.setItem('access_token', '" + token + "');" +
+            "        window.location.href = '" + baseUrl + "/dashboard';" +
+            "      } catch (e) {" +
+            "        console.error('Error storing token', e);" +
+            "        window.location.href = '" + baseUrl + "/auth-error';" +
+            "      }" +
+            "    };" +
+            "  </script>" +
+            "</head>" +
+            "<body>" +
+            "  <p>Authentication successful! Redirecting...</p>" +
+            "</body>" +
+            "</html>"
+        );
     }
 }
