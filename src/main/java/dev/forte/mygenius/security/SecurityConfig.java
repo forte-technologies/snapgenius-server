@@ -22,6 +22,9 @@ public class SecurityConfig {
     @Value("${jwt.secret}")
     private String jwtSecret;
 
+    @Value("${allowed.origins}")
+    private String[] allowedOrigins;
+
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
@@ -53,7 +56,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         // Allow specific origins or use configuration.setAllowedOriginPatterns(List.of("*")) for all origins
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000","http://localhost:5174")); // Adjust for your testing client
+        configuration.setAllowedOrigins(Arrays.asList(allowedOrigins)); // Adjust for your testing client
         configuration.setAllowedMethods(Arrays.asList(
                 HttpMethod.GET.name(),
                 HttpMethod.POST.name(),

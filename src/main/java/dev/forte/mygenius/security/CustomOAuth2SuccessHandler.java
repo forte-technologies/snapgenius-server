@@ -6,6 +6,7 @@ import jakarta.servlet.ServletException;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
@@ -19,6 +20,9 @@ import java.io.IOException;
 // Updated CustomOAuth2SuccessHandler
 @Component
 public class CustomOAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
+
+    @Value("${app.frontend.url}")
+    private String frontendUrl;
 
     private final JwtService jwtService;
     private final UserService userService;
@@ -42,16 +46,16 @@ public class CustomOAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHa
         // Create secure HTTP-only cookie with SameSite attribute
         ResponseCookie tokenCookie = ResponseCookie.from("JWT_TOKEN", token)
                 .httpOnly(true)
-                .secure(request.isSecure()) // true in production
+                .secure(true) // true in production
                 .path("/")
                 .maxAge(86400) // 1 day in seconds
-                .sameSite("Lax")
+                .sameSite("None")
                 .build();
 
         response.setHeader(HttpHeaders.SET_COOKIE, tokenCookie.toString());
 
-        // Redirect to the dashboard
-        String dashboardUrl = "http://localhost:5174/dashboard";
+        String baseUrl = frontendUrl;
+        String dashboardUrl =  baseUrl + "/dashboard";
         getRedirectStrategy().sendRedirect(request, response, dashboardUrl);
     }
 }

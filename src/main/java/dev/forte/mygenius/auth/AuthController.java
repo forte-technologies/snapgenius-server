@@ -74,10 +74,10 @@ public class AuthController {
         // Create an expired cookie to clear the JWT
         ResponseCookie cookie = ResponseCookie.from("JWT_TOKEN", "")
                 .httpOnly(true)
-                .secure(false) // Set to true in production with HTTPS
+                .secure(true) // Set to true in production with HTTPS
                 .path("/")
                 .maxAge(0) // Expired cookie
-                .sameSite("Lax")
+                .sameSite("None")
                 .build();
 
         response.setHeader(HttpHeaders.SET_COOKIE, cookie.toString());
@@ -130,10 +130,10 @@ public class AuthController {
                 // Set the new token as a cookie
                 ResponseCookie tokenCookie = ResponseCookie.from("JWT_TOKEN", newToken)
                         .httpOnly(true)
-                        .secure(false) // Set to true in production
+                        .secure(true) // Set to true in production
                         .path("/")
                         .maxAge(86400) // 1 day
-                        .sameSite("Lax")
+                        .sameSite("None")
                         .build();
 
                 response.setHeader(HttpHeaders.SET_COOKIE, tokenCookie.toString());
