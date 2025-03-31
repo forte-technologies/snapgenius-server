@@ -2,11 +2,8 @@ package dev.forte.mygenius.security;
 import dev.forte.mygenius.user.UserService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-
-
 
 import java.io.IOException;
 import java.util.Collections;
@@ -38,14 +35,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
 
         try {
-            // First, try to extract JWT token from the Authorization header
+            // Extract JWT token from the Authorization header
             String token = extractTokenFromHeader(request);
             
-            // If not found in header, fall back to cookies (backward compatibility)
-            if (token == null) {
-                token = extractTokenFromCookies(request.getCookies());
-            }
-
             if (token != null) {
                 try {
                     // Validate token and extract claims
@@ -66,9 +58,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             new UsernamePasswordAuthenticationToken(principal, null, Collections.emptyList());
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
-
-                    // Optionally, if you no longer need to rely on request attribute
-                    // request.setAttribute("userId", userId);
                 } catch (Exception e) {
                     logger.error("JWT validation failed", e);
                 }
@@ -85,20 +74,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7); // Remove "Bearer " prefix
         }
-        return null;
-    }
-
-    private String extractTokenFromCookies(Cookie[] cookies) {
-        if (cookies == null) {
-            return null;
-        }
-
-        for (Cookie cookie : cookies) {
-            if ("JWT_TOKEN".equals(cookie.getName())) {
-                return cookie.getValue();
-            }
-        }
-
         return null;
     }
 }

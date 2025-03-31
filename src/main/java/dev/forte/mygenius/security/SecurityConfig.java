@@ -71,7 +71,7 @@ public class SecurityConfig {
                 "X-Requested-With"
         ));
         configuration.setExposedHeaders(Arrays.asList("Authorization"));
-        configuration.setAllowCredentials(true);
+        configuration.setAllowCredentials(false); // No credentials needed with token-based auth
         configuration.setMaxAge(3600L); // 1 hour for preflight cache
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
