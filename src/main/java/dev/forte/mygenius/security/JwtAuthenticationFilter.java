@@ -16,7 +16,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import io.jsonwebtoken.Claims;
@@ -39,18 +38,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
 
         try {
-            // Try to get token from Authorization header first
-            String headerToken = extractTokenFromHeader(request);
-            
-            // If not in header, try to get token from cookie
-            String cookieToken = null;
-            if (headerToken == null) {
-                Cookie[] cookies = request.getCookies();
-                cookieToken = extractTokenFromCookies(cookies);
+            // Extract JWT token from cookie
+            String token = null;
+            Cookie[] cookies = request.getCookies();
+            if (cookies != null) {
+                for (Cookie cookie : cookies) {
+                    if ("JWT_TOKEN".equals(cookie.getName())) {
+                        token = cookie.getValue();
+                        break;
+                    }
+                }
             }
-            
-            // Use whichever token we found
-            String token = headerToken != null ? headerToken : cookieToken;
 
             if (token != null) {
                 try {
@@ -84,14 +82,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
-    }
-
-    private String extractTokenFromHeader(HttpServletRequest request) {
-        String bearerToken = request.getHeader("Authorization");
-        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
-            return bearerToken.substring(7);
-        }
-        return null;
     }
 
     private String extractTokenFromCookies(Cookie[] cookies) {

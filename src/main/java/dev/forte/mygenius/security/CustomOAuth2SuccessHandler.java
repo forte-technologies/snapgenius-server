@@ -15,8 +15,6 @@ import org.springframework.security.web.authentication.SimpleUrlAuthenticationSu
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 
 
 // Updated CustomOAuth2SuccessHandler
@@ -45,10 +43,10 @@ public class CustomOAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHa
         // Generate JWT with user ID
         String token = jwtService.generateToken(user.getEmail(), user.getUserId());
 
-        // Still set the HTTP-only cookie as a fallback for same-origin requests
+        // Create secure HTTP-only cookie with SameSite attribute
         ResponseCookie tokenCookie = ResponseCookie.from("JWT_TOKEN", token)
                 .httpOnly(true)
-                .secure(true) 
+                .secure(true) // true in production
                 .path("/")
                 .maxAge(86400) // 1 day in seconds
                 .sameSite("None")
@@ -56,11 +54,8 @@ public class CustomOAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHa
 
         response.setHeader(HttpHeaders.SET_COOKIE, tokenCookie.toString());
 
-        // Also include the token in the redirect URL for the frontend to capture
-        String encodedToken = URLEncoder.encode(token, StandardCharsets.UTF_8);
         String baseUrl = frontendUrl;
-        String redirectUrl = baseUrl + "/auth-callback?token=" + encodedToken;
-        
-        getRedirectStrategy().sendRedirect(request, response, redirectUrl);
+        String dashboardUrl =  baseUrl + "/dashboard";
+        getRedirectStrategy().sendRedirect(request, response, dashboardUrl);
     }
 }
