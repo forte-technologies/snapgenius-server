@@ -17,6 +17,8 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 
 // Updated CustomOAuth2SuccessHandler
@@ -56,35 +58,11 @@ public class CustomOAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHa
 
         response.setHeader(HttpHeaders.SET_COOKIE, tokenCookie.toString());
 
-        // Redirect to a special auth callback page that will securely handle token storage via postMessage
+        // Redirect to dashboard with token as a hash fragment (no document.referrer reveals it)
+        // Using hash fragments because they're not sent to the server
         String baseUrl = frontendUrl;
-        String callbackUrl = baseUrl + "/auth-callback";
+        String dashboardUrl = baseUrl + "/dashboard#auth_token=" + URLEncoder.encode(token, StandardCharsets.UTF_8.toString());
         
-        // We'll send the user to an auth-callback page that will securely handle the token
-        // This page will use window.postMessage to securely transfer the token to the parent/opener window
-        // and then redirect to the dashboard
-        response.setContentType("text/html;charset=UTF-8");
-        response.getWriter().write(
-            "<!DOCTYPE html>" +
-            "<html>" +
-            "<head>" +
-            "  <title>Authentication Success</title>" +
-            "  <script type=\"text/javascript\">" +
-            "    window.onload = function() {" +
-            "      try {" +
-            "        window.localStorage.setItem('access_token', '" + token + "');" +
-            "        window.location.href = '" + baseUrl + "/dashboard';" +
-            "      } catch (e) {" +
-            "        console.error('Error storing token', e);" +
-            "        window.location.href = '" + baseUrl + "/auth-error';" +
-            "      }" +
-            "    };" +
-            "  </script>" +
-            "</head>" +
-            "<body>" +
-            "  <p>Authentication successful! Redirecting...</p>" +
-            "</body>" +
-            "</html>"
-        );
+        getRedirectStrategy().sendRedirect(request, response, dashboardUrl);
     }
 }
