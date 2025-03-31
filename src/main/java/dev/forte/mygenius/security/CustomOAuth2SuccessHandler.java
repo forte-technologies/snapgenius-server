@@ -53,9 +53,13 @@ public class CustomOAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHa
                 .build();
 
         response.setHeader(HttpHeaders.SET_COOKIE, tokenCookie.toString());
+        
+        // ADDITION: Also add token as Authorization header for clients that struggle with cookies
+        response.setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token);
 
         String baseUrl = frontendUrl;
-        String dashboardUrl =  baseUrl + "/dashboard";
+        // ADDITION: Add token as URL parameter to help clients capture it
+        String dashboardUrl = baseUrl + "/dashboard?token=" + token;
         getRedirectStrategy().sendRedirect(request, response, dashboardUrl);
     }
 }

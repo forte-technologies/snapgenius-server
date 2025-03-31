@@ -65,6 +65,21 @@ public class AuthController {
         }
     }
 
+    /**
+     * Get a fresh token using the current authentication
+     */
+    @GetMapping("/token")
+    public ResponseEntity<Map<String, String>> getToken(@AuthenticationPrincipal CustomUserPrincipal userPrincipal) {
+        if (userPrincipal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Not authenticated"));
+        }
+        
+        // Generate a fresh token
+        String token = jwtService.generateToken(userPrincipal.getEmail(), userPrincipal.getUserId());
+        
+        return ResponseEntity.ok(Map.of("token", token));
+    }
 
     /**
      * Logout endpoint - clears the JWT cookie
