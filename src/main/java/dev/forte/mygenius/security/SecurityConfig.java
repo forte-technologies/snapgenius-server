@@ -38,7 +38,7 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class) // Add this line
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/", "/error", "/public/**", "/api/auth/me", "/api/auth/token").permitAll() // Public endpoints
+                        .requestMatchers("/", "/error", "/public/**", "/api/auth/me", "/api/auth/token", "/api/auth/exchange").permitAll() // Public endpoints
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2

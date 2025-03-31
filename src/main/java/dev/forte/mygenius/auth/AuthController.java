@@ -67,18 +67,55 @@ public class AuthController {
 
     /**
      * Get a fresh token using the current authentication
+     * Can accept a token parameter for unauthenticated requests
      */
     @GetMapping("/token")
-    public ResponseEntity<Map<String, String>> getToken(@AuthenticationPrincipal CustomUserPrincipal userPrincipal) {
-        if (userPrincipal == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Not authenticated"));
+    public ResponseEntity<Map<String, String>> getToken(
+            @AuthenticationPrincipal CustomUserPrincipal userPrincipal,
+            HttpServletRequest request) {
+        
+        // First try with authenticated principal
+        if (userPrincipal != null) {
+            String token = jwtService.generateToken(userPrincipal.getEmail(), userPrincipal.getUserId());
+            return ResponseEntity.ok(Map.of("token", token));
         }
         
-        // Generate a fresh token
-        String token = jwtService.generateToken(userPrincipal.getEmail(), userPrincipal.getUserId());
+        // If not authenticated, check for token in request parameters or headers
+        String bearerToken = request.getParameter("token");
         
-        return ResponseEntity.ok(Map.of("token", token));
+        // If no token parameter, check Authorization header
+        if (bearerToken == null) {
+            String authHeader = request.getHeader("Authorization");
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                bearerToken = authHeader.substring(7);
+            }
+        }
+        
+        // If we have a token, validate and issue a new one
+        if (bearerToken != null) {
+            try {
+                Claims claims = Jwts.parserBuilder()
+                        .setSigningKey(Keys.hmacShaKeyFor(jwtService.getJwtSecret().getBytes()))
+                        .build()
+                        .parseClaimsJws(bearerToken)
+                        .getBody();
+                        
+                // Extract values
+                String email = claims.getSubject();
+                UUID userId = UUID.fromString(claims.get("userId", String.class));
+                
+                // If token is still valid, issue a new one
+                String newToken = jwtService.generateToken(email, userId);
+                return ResponseEntity.ok(Map.of("token", newToken));
+            } catch (Exception e) {
+                // Token validation failed
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("error", "Invalid token: " + e.getMessage()));
+            }
+        }
+        
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(Map.of("error", "Not authenticated"));
     }
 
     /**
@@ -161,6 +198,25 @@ public class AuthController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "Error refreshing token: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Exchange a one-time code for a token
+     */
+    @GetMapping("/exchange")
+    public ResponseEntity<Map<String, String>> exchangeCodeForToken(
+            @org.springframework.web.bind.annotation.RequestParam String code) {
+        
+        String token = dev.forte.mygenius.security.CustomOAuth2SuccessHandler.getAndRemoveToken(code);
+        
+        if (token != null) {
+            // Code was valid and exchanged for a token
+            return ResponseEntity.ok(Map.of("token", token));
+        } else {
+            // Code was invalid or expired
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Invalid or expired code"));
         }
     }
 }

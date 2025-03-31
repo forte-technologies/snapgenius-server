@@ -15,11 +15,20 @@ import org.springframework.security.web.authentication.SimpleUrlAuthenticationSu
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.util.UUID;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 // Updated CustomOAuth2SuccessHandler
 @Component
 public class CustomOAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
+
+    // Store for temporary auth codes (in production, use Redis or another distributed store)
+    private static final Map<String, String> tempAuthCodes = new ConcurrentHashMap<>();
+    
+    // Code expiration time (5 minutes)
+    private static final long CODE_EXPIRATION_MS = 5 * 60 * 1000;
 
     @Value("${app.frontend.url}")
     private String frontendUrl;
@@ -30,6 +39,36 @@ public class CustomOAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHa
     public CustomOAuth2SuccessHandler(JwtService jwtService, UserService userService) {
         this.jwtService = jwtService;
         this.userService = userService;
+    }
+    
+    /**
+     * Store a token with a temporary code
+     */
+    public static String storeTokenWithCode(String token) {
+        // Generate a random code
+        String code = UUID.randomUUID().toString();
+        
+        // Store the token with the code
+        tempAuthCodes.put(code, token);
+        
+        // Schedule code removal after expiration (simplified implementation)
+        new Thread(() -> {
+            try {
+                Thread.sleep(CODE_EXPIRATION_MS);
+                tempAuthCodes.remove(code);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }).start();
+        
+        return code;
+    }
+    
+    /**
+     * Get and remove a token using its code (one-time use)
+     */
+    public static String getAndRemoveToken(String code) {
+        return tempAuthCodes.remove(code);
     }
 
     @Override
@@ -54,12 +93,14 @@ public class CustomOAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHa
 
         response.setHeader(HttpHeaders.SET_COOKIE, tokenCookie.toString());
         
-        // ADDITION: Also add token as Authorization header for clients that struggle with cookies
+        // Add token as Authorization header for clients that support it
         response.setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token);
 
-        String baseUrl = frontendUrl;
-        // ADDITION: Add token as URL parameter to help clients capture it
-        String dashboardUrl = baseUrl + "/dashboard?token=" + token;
+        // Generate a one-time code instead of passing the token directly
+        String authCode = storeTokenWithCode(token);
+        
+        // Redirect with the auth code instead of the actual token
+        String dashboardUrl = frontendUrl + "/dashboard?code=" + authCode;
         getRedirectStrategy().sendRedirect(request, response, dashboardUrl);
     }
 }
