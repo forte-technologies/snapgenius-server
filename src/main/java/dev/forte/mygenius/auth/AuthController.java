@@ -5,6 +5,7 @@ import dev.forte.mygenius.security.JwtService;
 import dev.forte.mygenius.user.User;
 import dev.forte.mygenius.user.UserService;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.http.Cookie;
@@ -15,10 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -65,6 +63,60 @@ public class AuthController {
         }
     }
 
+    /**
+     * Endpoint to validate a token and return user information
+     * This can be used by the frontend to validate tokens stored in sessionStorage
+     */
+    @PostMapping("/validate-token")
+    public ResponseEntity<Map<String, Object>> validateToken(@RequestBody Map<String, String> requestBody) {
+        String token = requestBody.get("token");
+        
+        if (token == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Token is required"));
+        }
+
+        try {
+            // Parse the token to get email and userId
+            Claims claims = Jwts.parserBuilder()
+                    .setSigningKey(Keys.hmacShaKeyFor(jwtService.getJwtSecret().getBytes()))
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
+
+            String email = claims.getSubject();
+            UUID userId = UUID.fromString(claims.get("userId", String.class));
+            
+            // Get user details
+            User user = userService.findByEmail(email);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("email", user.getEmail());
+            response.put("userId", user.getUserId());
+            response.put("username", user.getUsername());
+            response.put("isAuthenticated", true);
+            
+            // Check if token is about to expire (less than 30 minutes left)
+            Date expiration = claims.getExpiration();
+            long expiresInMs = expiration.getTime() - System.currentTimeMillis();
+            
+            if (expiresInMs < 1800000) { // Less than 30 minutes
+                // Generate a fresh token
+                String newToken = jwtService.generateToken(email, userId);
+                response.put("token", newToken);
+                response.put("tokenRefreshed", true);
+            }
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (ExpiredJwtException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Token expired"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Invalid token: " + e.getMessage()));
+        }
+    }
 
     /**
      * Logout endpoint - clears the JWT cookie
