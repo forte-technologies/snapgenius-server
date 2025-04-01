@@ -13,11 +13,19 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 @Service
 public class JwtService {
 
-    // Add this getter
-    @Getter
     @Value("${jwt.secret}")
     private String jwtSecret;
 
@@ -30,7 +38,6 @@ public class JwtService {
 
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId.toString());
-        // You could add auth method as a claim if needed later
         claims.put("authMethod", "google");
 
         return Jwts.builder()
@@ -42,14 +49,7 @@ public class JwtService {
                 .compact();
     }
 
-    public UUID getUserIdFromToken(String token) {
-        Claims claims = Jwts.parserBuilder()
-                .setSigningKey(Keys.hmacShaKeyFor(jwtSecret.getBytes()))
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
-
-        return UUID.fromString(claims.get("userId", String.class));
+    public String getJwtSecret() {
+        return jwtSecret;
     }
-
 }

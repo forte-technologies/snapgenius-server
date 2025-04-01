@@ -29,16 +29,11 @@ import java.util.UUID;
 public class AuthController {
 
     private final UserService userService;
-    private final JwtService jwtService;
 
-    public AuthController(UserService userService, JwtService jwtService) {
+    public AuthController(UserService userService) {
         this.userService = userService;
-        this.jwtService = jwtService;
     }
 
-    /**
-     * Get current authenticated user information
-     */
     @GetMapping("/me")
     public ResponseEntity<Map<String, Object>> getCurrentUser(@AuthenticationPrincipal CustomUserPrincipal userPrincipal) {
         if (userPrincipal == null) {
@@ -47,9 +42,7 @@ public class AuthController {
         }
 
         try {
-            // You can retrieve the user using the email from the custom principal
             User user = userService.findByEmail(userPrincipal.getEmail());
-
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Authentication successful!");
             response.put("email", user.getEmail());
@@ -57,95 +50,10 @@ public class AuthController {
             response.put("username", user.getUsername());
             response.put("timestamp", new Date());
             response.put("isAuthenticated", true);
-
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Error retrieving user: " + e.getMessage()));
-        }
-    }
-
-
-    /**
-     * Logout endpoint - clears the JWT cookie
-     */
-    @PostMapping("/logout")
-    public ResponseEntity<Map<String, String>> logout(HttpServletResponse response) {
-        // Create an expired cookie to clear the JWT
-        ResponseCookie cookie = ResponseCookie.from("JWT_TOKEN", "")
-                .httpOnly(true)
-                .secure(true) // Set to true in production with HTTPS
-                .path("/")
-                .maxAge(0) // Expired cookie
-                .sameSite("None")
-                .build();
-
-        response.setHeader(HttpHeaders.SET_COOKIE, cookie.toString());
-
-        return ResponseEntity.ok(Map.of("message", "Successfully logged out"));
-    }
-
-    /**
-     * Refresh JWT token (optional, for extending sessions)
-     */
-    @PostMapping("/refresh")
-    public ResponseEntity<?> refreshToken(HttpServletRequest request,
-                                          HttpServletResponse response) {
-        // Get existing token from cookies
-        String token = null;
-        Cookie[] cookies = request.getCookies();
-
-        if (cookies != null) {
-            for (Cookie cookie : cookies) {
-                if ("JWT_TOKEN".equals(cookie.getName())) {
-                    token = cookie.getValue();
-                    break;
-                }
-            }
-        }
-
-        if (token == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "No token to refresh"));
-        }
-
-        try {
-            // Parse the token to get email and userId
-            Claims claims = Jwts.parserBuilder()
-                    .setSigningKey(Keys.hmacShaKeyFor(jwtService.getJwtSecret().getBytes()))
-                    .build()
-                    .parseClaimsJws(token)
-                    .getBody();
-
-            // Extract values from the token
-            String email = claims.getSubject();
-            UUID userId = UUID.fromString(claims.get("userId", String.class));
-
-            // Check if token is still valid (not expired)
-            Date expiration = claims.getExpiration();
-            if (expiration != null && expiration.after(new Date())) {
-                // Generate new token
-                String newToken = jwtService.generateToken(email, userId);
-
-                // Set the new token as a cookie
-                ResponseCookie tokenCookie = ResponseCookie.from("JWT_TOKEN", newToken)
-                        .httpOnly(true)
-                        .secure(true) // Set to true in production
-                        .path("/")
-                        .maxAge(86400) // 1 day
-                        .sameSite("None")
-                        .build();
-
-                response.setHeader(HttpHeaders.SET_COOKIE, tokenCookie.toString());
-
-                return ResponseEntity.ok(Map.of("message", "Token refreshed successfully"));
-            } else {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(Map.of("error", "Token expired"));
-            }
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Error refreshing token: " + e.getMessage()));
         }
     }
 }

@@ -43,19 +43,8 @@ public class CustomOAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHa
         // Generate JWT with user ID
         String token = jwtService.generateToken(user.getEmail(), user.getUserId());
 
-        // Create secure HTTP-only cookie with SameSite attribute
-        ResponseCookie tokenCookie = ResponseCookie.from("JWT_TOKEN", token)
-                .httpOnly(true)
-                .secure(true) // true in production
-                .path("/")
-                .maxAge(86400) // 1 day in seconds
-                .sameSite("None")
-                .build();
-
-        response.setHeader(HttpHeaders.SET_COOKIE, tokenCookie.toString());
-
-        String baseUrl = frontendUrl;
-        String dashboardUrl =  baseUrl + "/dashboard";
-        getRedirectStrategy().sendRedirect(request, response, dashboardUrl);
+        // Redirect to frontend with the token as a query parameter
+        String redirectUrl = frontendUrl + "/dashboard?token=" + token;
+        getRedirectStrategy().sendRedirect(request, response, redirectUrl);
     }
 }
