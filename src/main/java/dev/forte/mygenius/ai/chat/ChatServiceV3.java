@@ -12,6 +12,7 @@ import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -84,6 +85,24 @@ public class ChatServiceV3 {
                         .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 100)
                         .param(FILTER_EXPRESSION, filterExpression))
                 .call().content();
+    }
+
+    public Flux<String> chatStream(UUID userId, String userMessageContent) {
+        lastAccessTimes.put(userId, LocalDateTime.now());
+
+        // Create a consistent conversationId using the userId
+        String conversationId = userId.toString();
+        String filterExpression = "user_id == '" + userId.toString() + "'";
+
+        return this.chatClient.prompt()
+                .user(userMessageContent)
+                .advisors(a -> a
+                        // This is the key part - providing the conversation ID to the advisor
+                        .param(CHAT_MEMORY_CONVERSATION_ID_KEY, conversationId)
+                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 100)
+                        .param(FILTER_EXPRESSION, filterExpression))
+                .stream().content();
+
     }
 
 

@@ -4,13 +4,17 @@ import dev.forte.mygenius.ai.chat.ChatService;
 import dev.forte.mygenius.ai.chat.ChatServiceV2;
 import dev.forte.mygenius.ai.chat.ChatServiceV3;
 import dev.forte.mygenius.security.CustomUserPrincipal;
+
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
+import reactor.core.publisher.Flux;
 
 import java.util.Date;
 import java.util.HashMap;
@@ -57,5 +61,23 @@ public class ChatController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Error generating response: " + e.getMessage()));
         }
+    }
+
+    @PostMapping(value = "/ragStream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<String> ragChatStream(
+            @AuthenticationPrincipal CustomUserPrincipal userPrincipal,
+            @RequestBody Map<String, String> request) {
+
+        if (userPrincipal == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated");
+        }
+
+        String message = request.get("message");
+        if (message == null || message.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Message cannot be empty");
+        }
+
+        // Return the Flux from chatServiceV3.chatStream directly
+        return chatServiceV3.chatStream(userPrincipal.getUserId(), message);
     }
 }
