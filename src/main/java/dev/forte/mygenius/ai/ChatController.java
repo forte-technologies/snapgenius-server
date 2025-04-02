@@ -14,11 +14,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.publisher.Flux;
 
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 @RestController
 @RequestMapping("/api/user/chat")
@@ -63,21 +65,4 @@ public class ChatController {
         }
     }
 
-    @PostMapping(value = "/ragStream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> ragChatStream(
-            @AuthenticationPrincipal CustomUserPrincipal userPrincipal,
-            @RequestBody Map<String, String> request) {
-
-        if (userPrincipal == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated");
-        }
-
-        String message = request.get("message");
-        if (message == null || message.trim().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Message cannot be empty");
-        }
-
-        // Return the Flux from chatServiceV3.chatStream directly
-        return chatServiceV3.chatStream(userPrincipal.getUserId(), message);
-    }
 }
