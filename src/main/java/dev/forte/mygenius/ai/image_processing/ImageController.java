@@ -36,7 +36,6 @@ public class ImageController {
                     .body(Map.of("error", "Not authenticated"));
         }
 
-
         try {
             if (file.isEmpty()) {
                 return ResponseEntity.badRequest()

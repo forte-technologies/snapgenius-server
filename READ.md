@@ -80,6 +80,171 @@ The application should start on the configured port (default 8080, check propert
 
 *(Note: Public/error paths like `/`, `/error`, `/public/**` might also be configured)*
 
+---
+# Security Context Propagation for Streaming in Spring MVC
+
+## Overview
+
+Our application implements streaming responses in a traditional Spring Web MVC application without migrating to a full WebFlux reactive stack. This approach allows us to leverage reactive types like `Flux` for streaming while maintaining our existing Spring MVC architecture.
+
+The key technical challenge we solved was propagating the security context across asynchronous boundaries in the streaming response pipeline, ensuring authenticated users maintain their security context throughout long-lived streaming connections.
+
+## Implementation
+
+### 1. Security Context Thread Local Accessor
+
+We created a custom `ThreadLocalAccessor` implementation to make the Spring Security context available for propagation across thread boundaries:
+
+```java
+public class SecurityContextThreadLocalAccessor implements ThreadLocalAccessor<SecurityContext> {
+    public static final String KEY = "org.springframework.security.context";
+
+    @Override
+    public Object key() {
+        return KEY;
+    }
+
+    @Override
+    public SecurityContext getValue() {
+        return SecurityContextHolder.getContext();
+    }
+
+    @Override
+    public void setValue(SecurityContext value) {
+        SecurityContextHolder.setContext(value);
+    }
+
+    @Override
+    public void reset() {
+        SecurityContextHolder.clearContext();
+    }
+}
+```
+
+### 2. Configuration
+
+We registered this accessor as a Spring bean:
+
+```java
+@Configuration
+public class SecurityContextPropagationConfig {
+    @Bean
+    public ThreadLocalAccessor<SecurityContext> securityContextAccessor() {
+        return new SecurityContextThreadLocalAccessor();
+    }
+}
+```
+
+And configured Spring Security to not require explicit saving of the security context:
+
+```java
+@Bean
+public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    http
+        // other configuration...
+        .securityContext(s -> s.requireExplicitSave(false));
+    
+    return http.build();
+}
+```
+
+### 3. Async Support with Virtual Threads
+
+We configured Spring MVC to use virtual threads for asynchronous request processing, leveraging Java 21's virtual thread capabilities:
+
+```java
+@Configuration
+@EnableWebMvc
+public class WebConfig implements WebMvcConfigurer {
+
+    @Override
+    public void configureAsyncSupport(AsyncSupportConfigurer configurer) {
+        configurer.setDefaultTimeout(30000);
+        configurer.setTaskExecutor(mvcTaskExecutor());
+    }
+
+    @Bean
+    public AsyncTaskExecutor mvcTaskExecutor() {
+        return new TaskExecutorAdapter(Executors.newVirtualThreadPerTaskExecutor());
+    }
+}
+```
+
+We also enabled virtual threads in `application.properties`:
+
+```properties
+spring.threads.virtual.enabled=true
+```
+
+### 4. Chat Service Implementation
+
+The `ChatServiceV3` class registers our security context accessor with the Micrometer `ContextRegistry` and uses a `ContextSnapshot` to propagate the security context across reactive streams:
+
+```java
+@Service
+public class ChatServiceV3 {
+    
+    public ChatServiceV3(ChatClient.Builder builder, VectorStore vectorStore, 
+                         ChatMemory chatMemory,
+                         ThreadLocalAccessor<SecurityContext> securityContextAccessor) {
+        
+        // Register the security context accessor
+        ContextRegistry contextRegistry = ContextRegistry.getInstance();
+        contextRegistry.registerThreadLocalAccessor(securityContextAccessor);
+        
+        // Other initialization...
+    }
+    
+    public Flux<String> chatStream(UUID userId, String userMessageContent) {
+        // Other implementation...
+        
+        // Capture the current security context
+        ContextSnapshot snapshot = ContextSnapshot.captureAll();
+        
+        // Return a reactive stream with context propagation
+        return this.chatClient.prompt()
+                .user(userMessageContent)
+                .advisors(/* ... */)
+                .stream().content().contextWrite(snapshot::updateContext);
+    }
+}
+```
+
+### 5. Controller Implementation
+
+Our controller method simply returns the `Flux<String>` directly, allowing Spring MVC's async support to handle the streaming:
+
+```java
+@PostMapping(value = "/stream")
+public Flux<String> streamChat(
+        @AuthenticationPrincipal CustomUserPrincipal userPrincipal,
+        @RequestBody Map<String, String> request) {
+    UUID userId = userPrincipal.getUserId();
+    String message = request.get("message");
+    return chatServiceV3.chatStream(userId, message);
+}
+```
+
+## How It Works
+
+1. When a request arrives, Spring Security authenticates the user and establishes the security context in `SecurityContextHolder`
+2. Our controller extracts the user ID from the authenticated principal and calls the service
+3. The service captures the current security context with `ContextSnapshot.captureAll()`
+4. As the chat response streams back to the client, the reactive framework may switch between threads
+5. Each time a thread switch occurs, the `contextWrite(snapshot::updateContext)` operator restores the security context
+6. This ensures that all operations in the reactive pipeline have access to the authenticated user's security context
+
+This approach allows us to implement streaming responses within Spring MVC while maintaining proper security context throughout the entire streaming process.
+
+## Benefits
+
+- Maintains compatibility with existing Spring MVC architecture
+- Leverages virtual threads for efficient handling of many concurrent connections
+- Properly propagates security context across asynchronous boundaries
+- Provides streaming capabilities without migrating to a full reactive stack
+- Scales efficiently for handling many concurrent chat sessions
+
+
 ## Further Development
 
 *   **Refine Error Handling:** Implement more specific exception handling and user-friendly error responses.

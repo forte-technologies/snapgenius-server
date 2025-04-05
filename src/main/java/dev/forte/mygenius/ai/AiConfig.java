@@ -34,7 +34,7 @@ public class AiConfig {
         OpenAiChatOptions chatOptions = OpenAiChatOptions.builder()
                 .model("gpt-4o")
                 .temperature(0.7)
-                .maxTokens(1200)
+                .maxTokens(900)
                 .build();
 
         return OpenAiChatModel.builder()
@@ -75,8 +75,4 @@ public class AiConfig {
         return ChatClient.builder(openAiChatModel);
     }
 
-    @Bean
-    public ChatMemory chatMemory() {
-        return new InMemoryChatMemory();
-    }
 }
