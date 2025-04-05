@@ -3,10 +3,7 @@ package dev.forte.mygenius.ai;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import dev.forte.mygenius.ai.image_processing.ImageContent;
-import dev.forte.mygenius.ai.image_processing.Image;
-import dev.forte.mygenius.ai.image_processing.ImageContentRepository;
-import dev.forte.mygenius.ai.image_processing.ImageRepository;
+import dev.forte.mygenius.ai.image_processing.*;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
@@ -15,9 +12,12 @@ import org.springframework.ai.model.Media;
 import org.springframework.ai.openai.OpenAiChatModel;
 
 import org.springframework.ai.vectorstore.pgvector.PgVectorStore;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -95,5 +95,10 @@ public class ImageProcessingService {
 
         System.out.println("Embedding the image description");
         vectorStore.add(Collections.singletonList(document));
+    }
+
+    public Page<SimpleImageDTO> getImageFileNames(UUID userId, Pageable pageable) {
+      return imageRepository.findSimpleIMagesByUserId(userId, pageable);
+
     }
 }
