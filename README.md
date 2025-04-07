@@ -1,5 +1,9 @@
 
-use or download the app at https://mygenius.netlify.app/
+SnapGenius is a Progressive Web Application (PWA) that empowers users to upload unlimited images and documents. These uploads are converted into vector embeddings using OpenAI's embedding model, creating a searchable knowledge base.
+The application features a retrieval-augmented generation chatbot. When users submit queries, the backend performs a similarity search against their uploaded content, retrieving the 5-6 most relevant documents or images as context for generating accurate, personalized responses.
+This approach allows users to effectively interact with large volumes of their own data, as the system intelligently selects only the most relevant information needed to answer each specific query.
+
+use or download the app at https://snapgenius.app/
 
 ### Image Upload and Processing
 
