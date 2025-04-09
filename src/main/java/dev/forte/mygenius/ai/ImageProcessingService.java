@@ -12,6 +12,7 @@ import org.springframework.ai.model.Media;
 import org.springframework.ai.openai.OpenAiChatModel;
 
 import org.springframework.ai.vectorstore.pgvector.PgVectorStore;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
@@ -33,7 +34,8 @@ public class ImageProcessingService {
     private final OpenAiChatModel visionModel;
     private final ObjectMapper objectMapper;
 
-    public ImageProcessingService(ImageRepository imageRepository, ImageContentRepository contentRepository, PgVectorStore vectorStore, OpenAiChatModel visionModel, ObjectMapper objectMapper) {
+    public ImageProcessingService(ImageRepository imageRepository, ImageContentRepository contentRepository, PgVectorStore vectorStore,
+                                  @Qualifier("openAiApi") OpenAiChatModel visionModel, ObjectMapper objectMapper) {
         this.imageRepository = imageRepository;
         this.contentRepository = contentRepository;
         this.vectorStore = vectorStore;

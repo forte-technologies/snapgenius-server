@@ -10,6 +10,8 @@ import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.OpenAiEmbeddingModel;
 import org.springframework.ai.openai.OpenAiEmbeddingOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
+import org.springframework.ai.openai.api.ResponseFormat;
+import org.springframework.ai.reader.tika.TikaDocumentReader;
 import org.springframework.ai.retry.RetryUtils;
 import org.springframework.ai.vectorstore.pgvector.PgVectorStore;
 import org.springframework.beans.factory.annotation.Value;
@@ -44,6 +46,26 @@ public class AiConfig {
     }
 
     @Bean
+    public OpenAiChatModel openAiApiJson() {
+
+
+        OpenAiApi openAiApi = OpenAiApi.builder()
+                .apiKey(openAiApiKey)
+                .build();
+
+        OpenAiChatOptions chatOptions = OpenAiChatOptions.builder()
+                .model("gpt-4o")
+                .temperature(0.3)
+                .maxTokens(16384)
+                .build();
+
+        return OpenAiChatModel.builder()
+                .openAiApi(openAiApi)
+                .defaultOptions(chatOptions)
+                .build();
+    }
+
+    @Bean
     public OpenAiEmbeddingModel openAiEmbeddingModel() {
 
         OpenAiApi openAiApi = OpenAiApi.builder()
@@ -69,10 +91,4 @@ public class AiConfig {
                 .initializeSchema(false)
                 .build();
     }
-
-    @Bean
-    public ChatClient.Builder chatClientBuilder(OpenAiChatModel openAiChatModel) {
-        return ChatClient.builder(openAiChatModel);
-    }
-
 }
