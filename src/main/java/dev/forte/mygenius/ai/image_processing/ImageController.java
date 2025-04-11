@@ -1,6 +1,5 @@
 package dev.forte.mygenius.ai.image_processing;
 
-import dev.forte.mygenius.ai.ImageProcessingService;
 import dev.forte.mygenius.security.CustomUserPrincipal;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;

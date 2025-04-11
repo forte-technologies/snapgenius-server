@@ -1,12 +1,10 @@
-package dev.forte.mygenius.ai;
+package dev.forte.mygenius.ai.image_processing;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import dev.forte.mygenius.ai.image_processing.*;
+import dev.forte.mygenius.ai.uploads.Upload;
+import dev.forte.mygenius.ai.uploads.UploadRepository;
+import dev.forte.mygenius.ai.uploads.UploadService;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.model.Media;
 import org.springframework.ai.openai.OpenAiChatModel;
@@ -15,7 +13,6 @@ import org.springframework.ai.vectorstore.pgvector.PgVectorStore;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -24,8 +21,6 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
 
-import static org.springframework.ai.model.Media.Format.IMAGE_JPEG;
-
 @Service
 public class ImageProcessingService {
     private final ImageRepository imageRepository;
@@ -33,14 +28,16 @@ public class ImageProcessingService {
     private final PgVectorStore vectorStore;
     private final OpenAiChatModel visionModel;
     private final ObjectMapper objectMapper;
+   private final UploadRepository uploadRepository;
 
     public ImageProcessingService(ImageRepository imageRepository, ImageContentRepository contentRepository, PgVectorStore vectorStore,
-                                  @Qualifier("openAiApi") OpenAiChatModel visionModel, ObjectMapper objectMapper) {
+                                  @Qualifier("openAiApi") OpenAiChatModel visionModel, ObjectMapper objectMapper, UploadRepository uploadRepository) {
         this.imageRepository = imageRepository;
         this.contentRepository = contentRepository;
         this.vectorStore = vectorStore;
         this.visionModel = visionModel;
         this.objectMapper = objectMapper;
+        this.uploadRepository = uploadRepository;
     }
 
     public void processUserImage(UUID userId, MultipartFile file) throws IOException {
@@ -61,6 +58,14 @@ public class ImageProcessingService {
         content.setExtractedText(null); // Will be filled later
         content.setGeneratedDescription(null); // Will be filled after OpenAI processing
         ImageContent savedContent = contentRepository.save(content);
+
+        Upload upload = new Upload();
+        upload.setUserId(userId);
+        upload.setFileName(file.getOriginalFilename());
+        upload.setFileType("IMAGE"); // or "IMAGE"
+        upload.setContentId(image.getImageId()); // or image.getImageId()
+        uploadRepository.save(upload);
+
 
         // 3. Generate base64 encoding of image for OpenAI
         String base64Image = Base64.getEncoder().encodeToString(file.getBytes());

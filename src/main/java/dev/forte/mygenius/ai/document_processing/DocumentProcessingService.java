@@ -2,6 +2,8 @@ package dev.forte.mygenius.ai.document_processing;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.forte.mygenius.ai.uploads.Upload;
+import dev.forte.mygenius.ai.uploads.UploadRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.Message;
@@ -38,16 +40,18 @@ public class DocumentProcessingService {
     private final OpenAiChatModel openAiChatModel;
     private final PgVectorStore pgVectorStore;
     private final ObjectMapper objectMapper;
+    private final UploadRepository uploadRepository;
 
 
     public DocumentProcessingService(DocumentRepository documentRepository, DocumentContentsRepository documentContentsRepository,
-                                     @Qualifier("openAiApiJson") OpenAiChatModel openAiChatModel, PgVectorStore pgVectorStore, ObjectMapper objectMapper) {
+                                     @Qualifier("openAiApiJson") OpenAiChatModel openAiChatModel, PgVectorStore pgVectorStore, ObjectMapper objectMapper, UploadRepository uploadRepository) {
         this.documentRepository = documentRepository;
         this.documentContentsRepository = documentContentsRepository;
         this.openAiChatModel = openAiChatModel;
         this.pgVectorStore = pgVectorStore;
         this.objectMapper = objectMapper;
 
+        this.uploadRepository = uploadRepository;
     }
 
     public void processUserDocuments(UUID userId, MultipartFile file) throws IOException {
@@ -66,6 +70,13 @@ public class DocumentProcessingService {
         content.setProcessingStatus("pending");
         documentContentsRepository.save(content);
         log.info("Document content saved to database");
+
+        Upload upload = new Upload();
+        upload.setUserId(userId);
+        upload.setFileName(file.getOriginalFilename());
+        upload.setFileType("DOCUMENT");
+        upload.setContentId(document.getDocumentId());
+        uploadRepository.save(upload);
 
         try {
             // Extract text using Tika
